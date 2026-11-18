@@ -8,6 +8,8 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
+    async:
+      request-timeout: ${MALL_ASYNC_REQUEST_TIMEOUT:150s}
   datasource:
     url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
@@ -118,3 +120,9 @@ sa-token:
   jwt-secret-key: sa-secret-key123
   # 是否打印banner
   is-print: false
+
+
+mewhelp:
+  base-url: ${MEWHELP_BASE_URL:http://localhost:8000}
+  connect-timeout: ${MEWHELP_CONNECT_TIMEOUT:3s}
+  response-timeout: ${MEWHELP_RESPONSE_TIMEOUT:120s}

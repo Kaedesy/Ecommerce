@@ -174,3 +174,7 @@ mall
 [Apache License 2.0](https://github.com/macrozheng/mall-swarm/blob/master/LICENSE)
 
 Copyright (c) 2018-2026 macrozheng
+
+## MewHelp 智能客服接入
+
+商城 mall-portal 已提供 MewHelp 对话流和会话历史接口，接入配置及前端调用方式见 [MewHelp 智能客服接入说明](document/reference/mewhelp-integration.md)。
