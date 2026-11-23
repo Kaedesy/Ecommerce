@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.macro.mall.portal.dao.FlashPromotionRequestDao">
+  <resultMap id="requestMap" type="com.macro.mall.portal.domain.FlashPromotionRequest">
+    <id column="id" property="id"/><result column="request_no" property="requestNo"/>
+    <result column="member_id" property="memberId"/><result column="promotion_relation_id" property="promotionRelationId"/>
+    <result column="product_sku_id" property="productSkuId"/><result column="receive_address_id" property="receiveAddressId"/>
+    <result column="quantity" property="quantity"/><result column="idempotency_key" property="idempotencyKey"/>
+    <result column="request_hash" property="requestHash"/><result column="status" property="status"/>
+    <result column="order_id" property="orderId"/><result column="fail_reason" property="failReason"/>
+  </resultMap>
+  <sql id="columns">id, request_no, member_id, promotion_relation_id, product_sku_id, receive_address_id,
+    quantity, idempotency_key, request_hash, status, order_id, fail_reason</sql>
+  <insert id="insertInit">
+    INSERT INTO sms_flash_promotion_request
+      (request_no, member_id, promotion_relation_id, product_sku_id, receive_address_id,
+       quantity, idempotency_key, request_hash, status)
+    VALUES (#{requestNo}, #{memberId}, #{promotionRelationId}, #{productSkuId}, #{receiveAddressId},
+       #{quantity}, #{idempotencyKey}, #{requestHash}, 'INIT')
+  </insert>
+  <select id="selectInitRequests" resultMap="requestMap">
+    SELECT <include refid="columns"/> FROM sms_flash_promotion_request
+    WHERE status='INIT' ORDER BY id LIMIT #{limit}
+  </select>
+  <select id="selectByMemberKey" resultMap="requestMap">
+    SELECT <include refid="columns"/> FROM sms_flash_promotion_request
+    WHERE member_id=#{memberId} AND idempotency_key=#{idempotencyKey}
+  </select>
+  <select id="selectByRequestNo" resultMap="requestMap">
+    SELECT <include refid="columns"/> FROM sms_flash_promotion_request
+    WHERE member_id=#{memberId} AND request_no=#{requestNo}
+  </select>
+  <select id="selectForUpdate" resultMap="requestMap">SELECT <include refid="columns"/> FROM sms_flash_promotion_request WHERE request_no=#{requestNo} FOR UPDATE</select>
+  <select id="selectByOrderId" resultMap="requestMap">SELECT <include refid="columns"/> FROM sms_flash_promotion_request WHERE order_id=#{orderId}</select>
+  <select id="selectRestorePending" resultMap="requestMap">SELECT <include refid="columns"/> FROM sms_flash_promotion_request WHERE status='RESTORE_PENDING' ORDER BY id LIMIT #{limit}</select>
+  <update id="markProcessing">UPDATE sms_flash_promotion_request SET status='PROCESSING' WHERE request_no=#{requestNo} AND status IN ('PUBLISHED','PROCESSING')</update>
+  <update id="markOrderCreated">UPDATE sms_flash_promotion_request SET status='ORDER_CREATED', order_id=#{orderId}, fail_reason=NULL WHERE request_no=#{requestNo} AND status='PROCESSING'</update>
+  <update id="markPaid">UPDATE sms_flash_promotion_request SET status='PAID' WHERE request_no=#{requestNo} AND status='ORDER_CREATED'</update>
+  <update id="markClosedAfterEnd">UPDATE sms_flash_promotion_request SET status='RESTORED' WHERE request_no=#{requestNo} AND status='ORDER_CREATED'</update>
+  <update id="resetExpiredClaims">UPDATE sms_flash_promotion_request SET status='READY', lease_until=NULL, next_retry_time=NOW() WHERE status='PUBLISHING' AND lease_until &lt; NOW()</update>
+  <update id="markPublishRetry">UPDATE sms_flash_promotion_request SET status='READY', lease_until=NULL, next_retry_time=DATE_ADD(NOW(), INTERVAL 5 SECOND) WHERE request_no=#{requestNo} AND status='PUBLISHING'</update>
+  <update id="markRestored">UPDATE sms_flash_promotion_request SET status='RESTORED', lease_until=NULL WHERE request_no=#{requestNo} AND status='RESTORE_PENDING'</update>
+  <update id="markRestorePending">UPDATE sms_flash_promotion_request SET status='RESTORE_PENDING', fail_reason=#{reason} WHERE request_no=#{requestNo} AND status NOT IN ('PAID','RESTORED')</update>
+  <update id="markReady">UPDATE sms_flash_promotion_request SET status='READY', fail_reason=NULL WHERE request_no=#{requestNo} AND status='INIT'</update>
+  <update id="markRejected">UPDATE sms_flash_promotion_request SET status='REJECTED', fail_reason=#{reason} WHERE request_no=#{requestNo} AND status='INIT'</update>
+  <select id="selectReadyRequestNos" resultType="string">
+    SELECT request_no FROM sms_flash_promotion_request
+    WHERE ((status='READY' AND (next_retry_time IS NULL OR next_retry_time &lt;= NOW())) OR (status='PUBLISHED' AND lease_until &lt;= NOW()))
+    ORDER BY id LIMIT #{limit}
+  </select>
+  <update id="claimForPublish">
+    UPDATE sms_flash_promotion_request SET status='PUBLISHING', lease_until=DATE_ADD(NOW(), INTERVAL 60 SECOND)
+    WHERE request_no=#{requestNo} AND (status='READY' OR (status='PUBLISHED' AND lease_until &lt;= NOW()))
+  </update>
+  <update id="markPublished">UPDATE sms_flash_promotion_request SET status='PUBLISHED', lease_until=DATE_ADD(NOW(), INTERVAL 60 SECOND) WHERE request_no=#{requestNo} AND status='PUBLISHING'</update>
+</mapper>

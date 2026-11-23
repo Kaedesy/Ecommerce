@@ -6,6 +6,9 @@
         <result column="flash_promotion_price" property="flashPromotionPrice"/>
         <result column="flash_promotion_count" property="flashPromotionCount"/>
         <result column="flash_promotion_limit" property="flashPromotionLimit"/>
+        <result column="promotion_relation_id" property="promotionRelationId"/>
+        <result column="product_sku_id" property="productSkuId"/>
+        <result column="stock_status" property="stockStatus"/>
     </resultMap>
 
     <select id="getRecommendBrandList" resultMap="com.macro.mall.mapper.PmsBrandMapper.BaseResultMap">
@@ -26,6 +29,9 @@
             pr.flash_promotion_price,
             pr.flash_promotion_count,
             pr.flash_promotion_limit,
+            pr.id promotion_relation_id,
+            pr.product_sku_id,
+            pr.stock_status,
             p.*
         FROM
             sms_flash_promotion_product_relation pr

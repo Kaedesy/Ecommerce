@@ -10,6 +10,9 @@ import com.macro.mall.mapper.*;
 import com.macro.mall.model.*;
 import com.macro.mall.portal.dao.OutboxEventDao;
 import com.macro.mall.portal.dao.PortalOrderDao;
+import com.macro.mall.portal.dao.FlashPromotionRequestDao;
+import com.macro.mall.portal.domain.FlashPromotionRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.macro.mall.portal.dao.PortalOrderItemDao;
 import com.macro.mall.portal.dao.SmsCouponHistoryDao;
 import com.macro.mall.portal.domain.*;
@@ -67,6 +70,10 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     private OmsOrderItemMapper orderItemMapper;
     @Autowired
     private OutboxEventDao outboxEventDao;
+    @Autowired
+    private FlashPromotionRequestDao flashPromotionRequestDao;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Override
     public ConfirmOrderResult generateConfirmOrder(List<Long> cartIds) {
@@ -347,7 +354,9 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         if (orderDetail == null || CollectionUtils.isEmpty(orderDetail.getOrderItemList())) {
             Asserts.fail("Order items do not exist; payment inventory cannot be confirmed");
         }
-        return confirmOrderInventory(orderDetail.getOrderItemList());
+        int confirmed = confirmOrderInventory(orderDetail.getOrderItemList());
+        if (Integer.valueOf(1).equals(orderDetail.getOrderType())) completeFlashPayment(orderId);
+        return confirmed;
     }
 
     @Override
@@ -368,9 +377,7 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
             if (transitioned != 1) {
                 continue;
             }
-            if (!CollectionUtils.isEmpty(timeOutOrder.getOrderItemList())) {
-                releaseOrderInventoryLock(timeOutOrder.getOrderItemList());
-            }
+            if (!cancelFlashReservation(timeOutOrder.getId(), timeOutOrder.getOrderItemList()) && !CollectionUtils.isEmpty(timeOutOrder.getOrderItemList())) { releaseOrderInventoryLock(timeOutOrder.getOrderItemList()); }
             //修改优惠券使用状态
             updateCouponStatus(timeOutOrder.getCouponId(), timeOutOrder.getMemberId(), 0);
             //返还使用积分
@@ -397,9 +404,7 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         OmsOrderItemExample orderItemExample = new OmsOrderItemExample();
         orderItemExample.createCriteria().andOrderIdEqualTo(orderId);
         List<OmsOrderItem> orderItemList = orderItemMapper.selectByExample(orderItemExample);
-        if (!CollectionUtils.isEmpty(orderItemList)) {
-            releaseOrderInventoryLock(orderItemList);
-        }
+        if (!cancelFlashReservation(orderId, orderItemList) && !CollectionUtils.isEmpty(orderItemList)) { releaseOrderInventoryLock(orderItemList); }
         updateCouponStatus(cancelOrder.getCouponId(), cancelOrder.getMemberId(), 0);
         if (cancelOrder.getUseIntegration() != null) {
             UmsMember member = memberService.getById(cancelOrder.getMemberId());
@@ -407,6 +412,31 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         }
     }
 
+private void completeFlashPayment(Long orderId) {
+        FlashPromotionRequest request = flashPromotionRequestDao.selectByOrderId(orderId);
+        if (request == null || !"ORDER_CREATED".equals(request.getStatus())) Asserts.fail("秒杀请求与订单关联状态异常");
+        int relationUpdated = jdbcTemplate.update("UPDATE sms_flash_promotion_product_relation SET reserved_count=reserved_count-?, sold_count=sold_count+? WHERE id=? AND reserved_count>=?",
+                request.getQuantity(), request.getQuantity(), request.getPromotionRelationId(), request.getQuantity());
+        int limitUpdated = jdbcTemplate.update("UPDATE sms_flash_promotion_user_limit SET reserved_count=reserved_count-?, bought_count=bought_count+? WHERE promotion_relation_id=? AND member_id=? AND reserved_count>=?",
+                request.getQuantity(), request.getQuantity(), request.getPromotionRelationId(), request.getMemberId(), request.getQuantity());
+        if (relationUpdated != 1 || limitUpdated != 1 || flashPromotionRequestDao.markPaid(request.getRequestNo()) != 1) Asserts.fail("秒杀支付库存/限购状态迁移失败");
+    }
+
+    private boolean cancelFlashReservation(Long orderId, List<OmsOrderItem> orderItems) {
+        FlashPromotionRequest request = flashPromotionRequestDao.selectByOrderId(orderId);
+        if (request == null) return false;
+        String stockStatus = jdbcTemplate.queryForObject("SELECT stock_status FROM sms_flash_promotion_product_relation WHERE id=?", String.class, request.getPromotionRelationId());
+        int relationUpdated = jdbcTemplate.update("UPDATE sms_flash_promotion_product_relation SET reserved_count=reserved_count-? WHERE id=? AND reserved_count>=?", request.getQuantity(), request.getPromotionRelationId(), request.getQuantity());
+        int limitUpdated = jdbcTemplate.update("UPDATE sms_flash_promotion_user_limit SET reserved_count=reserved_count-? WHERE promotion_relation_id=? AND member_id=? AND reserved_count>=?", request.getQuantity(), request.getPromotionRelationId(), request.getMemberId(), request.getQuantity());
+        if (relationUpdated != 1 || limitUpdated != 1) Asserts.fail("秒杀取消库存/限购状态迁移失败");
+        if ("ENDED".equals(stockStatus)) {
+            if (!CollectionUtils.isEmpty(orderItems)) releaseOrderInventoryLock(orderItems);
+            if (flashPromotionRequestDao.markClosedAfterEnd(request.getRequestNo()) != 1) Asserts.fail("秒杀订单关闭状态迁移失败");
+        } else if (flashPromotionRequestDao.markRestorePending(request.getRequestNo(), "秒杀订单取消，等待 Redis 归还预占") != 1) {
+            Asserts.fail("秒杀库存补偿任务创建失败");
+        }
+        return true;
+    }
     private int confirmOrderInventory(List<OmsOrderItem> orderItemList) {
         List<OmsOrderItem> orderedItems = new ArrayList<>(orderItemList);
         for (OmsOrderItem item : orderedItems) {

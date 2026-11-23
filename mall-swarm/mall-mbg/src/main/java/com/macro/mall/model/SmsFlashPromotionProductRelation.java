@@ -15,6 +15,13 @@ public class SmsFlashPromotionProductRelation implements Serializable {
 
     private Long productId;
 
+    @io.swagger.v3.oas.annotations.media.Schema(title = "秒杀SKU编号")
+    private Long productSkuId;
+
+    private Integer reservedCount;
+    private Integer soldCount;
+    private String stockStatus;
+
     @Schema(title = "限时购价格")
     private BigDecimal flashPromotionPrice;
 
@@ -61,6 +68,15 @@ public class SmsFlashPromotionProductRelation implements Serializable {
         this.productId = productId;
     }
 
+    public Long getProductSkuId() { return productSkuId; }
+    public void setProductSkuId(Long productSkuId) { this.productSkuId = productSkuId; }
+    public Integer getReservedCount() { return reservedCount; }
+    public void setReservedCount(Integer reservedCount) { this.reservedCount = reservedCount; }
+    public Integer getSoldCount() { return soldCount; }
+    public void setSoldCount(Integer soldCount) { this.soldCount = soldCount; }
+    public String getStockStatus() { return stockStatus; }
+    public void setStockStatus(String stockStatus) { this.stockStatus = stockStatus; }
+
     public BigDecimal getFlashPromotionPrice() {
         return flashPromotionPrice;
     }
@@ -103,6 +119,10 @@ public class SmsFlashPromotionProductRelation implements Serializable {
         sb.append(", flashPromotionId=").append(flashPromotionId);
         sb.append(", flashPromotionSessionId=").append(flashPromotionSessionId);
         sb.append(", productId=").append(productId);
+        sb.append(", productSkuId=").append(productSkuId);
+        sb.append(", reservedCount=").append(reservedCount);
+        sb.append(", soldCount=").append(soldCount);
+        sb.append(", stockStatus=").append(stockStatus);
         sb.append(", flashPromotionPrice=").append(flashPromotionPrice);
         sb.append(", flashPromotionCount=").append(flashPromotionCount);
         sb.append(", flashPromotionLimit=").append(flashPromotionLimit);

@@ -6,6 +6,10 @@
     <result column="flash_promotion_id" jdbcType="BIGINT" property="flashPromotionId" />
     <result column="flash_promotion_session_id" jdbcType="BIGINT" property="flashPromotionSessionId" />
     <result column="product_id" jdbcType="BIGINT" property="productId" />
+    <result column="product_sku_id" jdbcType="BIGINT" property="productSkuId" />
+    <result column="reserved_count" jdbcType="INTEGER" property="reservedCount" />
+    <result column="sold_count" jdbcType="INTEGER" property="soldCount" />
+    <result column="stock_status" jdbcType="VARCHAR" property="stockStatus" />
     <result column="flash_promotion_price" jdbcType="DECIMAL" property="flashPromotionPrice" />
     <result column="flash_promotion_count" jdbcType="INTEGER" property="flashPromotionCount" />
     <result column="flash_promotion_limit" jdbcType="INTEGER" property="flashPromotionLimit" />
@@ -70,7 +74,7 @@
     </where>
   </sql>
   <sql id="Base_Column_List">
-    id, flash_promotion_id, flash_promotion_session_id, product_id, flash_promotion_price, 
+    id, flash_promotion_id, flash_promotion_session_id, product_id, product_sku_id, reserved_count, sold_count, stock_status, flash_promotion_price,
     flash_promotion_count, flash_promotion_limit, sort
   </sql>
   <select id="selectByExample" parameterType="com.macro.mall.model.SmsFlashPromotionProductRelationExample" resultMap="BaseResultMap">
@@ -88,7 +92,7 @@
     </if>
   </select>
   <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
-    select 
+    select
     <include refid="Base_Column_List" />
     from sms_flash_promotion_product_relation
     where id = #{id,jdbcType=BIGINT}
@@ -107,11 +111,11 @@
     <selectKey keyProperty="id" order="AFTER" resultType="java.lang.Long">
       SELECT LAST_INSERT_ID()
     </selectKey>
-    insert into sms_flash_promotion_product_relation (flash_promotion_id, flash_promotion_session_id, 
-      product_id, flash_promotion_price, flash_promotion_count, 
+    insert into sms_flash_promotion_product_relation (flash_promotion_id, flash_promotion_session_id,
+      product_id, flash_promotion_price, flash_promotion_count,
       flash_promotion_limit, sort)
-    values (#{flashPromotionId,jdbcType=BIGINT}, #{flashPromotionSessionId,jdbcType=BIGINT}, 
-      #{productId,jdbcType=BIGINT}, #{flashPromotionPrice,jdbcType=DECIMAL}, #{flashPromotionCount,jdbcType=INTEGER}, 
+    values (#{flashPromotionId,jdbcType=BIGINT}, #{flashPromotionSessionId,jdbcType=BIGINT},
+      #{productId,jdbcType=BIGINT}, #{flashPromotionPrice,jdbcType=DECIMAL}, #{flashPromotionCount,jdbcType=INTEGER},
       #{flashPromotionLimit,jdbcType=INTEGER}, #{sort,jdbcType=INTEGER})
   </insert>
   <insert id="insertSelective" parameterType="com.macro.mall.model.SmsFlashPromotionProductRelation">

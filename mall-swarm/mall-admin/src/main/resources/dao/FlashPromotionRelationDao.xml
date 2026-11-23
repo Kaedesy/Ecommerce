@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.macro.mall.dao.FlashPromotionRelationDao">
+  <update id="reserveSkuStock">
+    UPDATE pms_sku_stock sku
+    JOIN sms_flash_promotion promotion ON promotion.id = #{promotionId} AND promotion.status = 1
+    JOIN sms_flash_promotion_session session ON session.id = #{sessionId} AND session.status = 1
+    SET sku.lock_stock = GREATEST(COALESCE(sku.lock_stock, 0), 0) + #{quantity}
+    WHERE sku.id = #{skuId} AND sku.product_id = #{productId}
+      AND #{quantity} &gt; 0
+      AND COALESCE(sku.stock, 0) - GREATEST(COALESCE(sku.lock_stock, 0), 0) &gt;= #{quantity}
+  </update>
+  <update id="releaseSkuStock">
+    UPDATE pms_sku_stock
+    SET lock_stock = GREATEST(COALESCE(lock_stock, 0), 0) - #{quantity}
+    WHERE id = #{skuId} AND GREATEST(COALESCE(lock_stock, 0), 0) &gt;= #{quantity}
+  </update>
+  <insert id="insertRelation" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO sms_flash_promotion_product_relation
+      (flash_promotion_id, flash_promotion_session_id, product_id, product_sku_id,
+       flash_promotion_price, flash_promotion_count, flash_promotion_limit, sort,
+       reserved_count, sold_count, stock_status)
+    VALUES
+      (#{flashPromotionId}, #{flashPromotionSessionId}, #{productId}, #{productSkuId},
+       #{flashPromotionPrice}, #{flashPromotionCount}, #{flashPromotionLimit}, #{sort},
+       0, 0, 'PREPARING')
+  </insert>
+  <select id="selectRelation" resultType="com.macro.mall.model.SmsFlashPromotionProductRelation">
+    SELECT id, flash_promotion_id AS flashPromotionId,
+           flash_promotion_session_id AS flashPromotionSessionId, product_id AS productId,
+           product_sku_id AS productSkuId, flash_promotion_price AS flashPromotionPrice,
+           flash_promotion_count AS flashPromotionCount, flash_promotion_limit AS flashPromotionLimit,
+           sort, reserved_count AS reservedCount, sold_count AS soldCount, stock_status AS stockStatus
+    FROM sms_flash_promotion_product_relation WHERE id = #{id}
+  </select>
+  <update id="claimForDelete">
+    UPDATE sms_flash_promotion_product_relation SET stock_status='RECOVERY'
+    WHERE id=#{id} AND stock_status IN ('PREPARING','READY') AND reserved_count=0 AND sold_count=0
+  </update>
+  <delete id="deletePreparing">
+    DELETE FROM sms_flash_promotion_product_relation WHERE id = #{id} AND stock_status = 'RECOVERY' AND reserved_count = 0 AND sold_count = 0
+  </delete>
+</mapper>
