@@ -22,13 +22,16 @@ public class FlashOrderPublisher {
 
     @Scheduled(fixedDelayString = "${mall.flash.publisher-poll-ms:500}")
     public void publishReadyRequests() {
+        publishReadyRequests(FlashPromotionRabbitConfig.EXCHANGE, FlashPromotionRabbitConfig.ROUTING_KEY);
+    }
+
+    void publishReadyRequests(String exchange, String routingKey) {
         List<String> requestNos = requestDao.selectReadyRequestNos(50);
         for (String requestNo : requestNos) {
             if (requestDao.claimForPublish(requestNo) != 1) continue;
             try {
                 CorrelationData correlation = new CorrelationData(requestNo);
-                rabbitTemplate.convertAndSend(FlashPromotionRabbitConfig.EXCHANGE,
-                        FlashPromotionRabbitConfig.ROUTING_KEY, requestNo, message -> {
+                rabbitTemplate.convertAndSend(exchange, routingKey, requestNo, message -> {
                             message.getMessageProperties().setMessageId(requestNo);
                             message.getMessageProperties().setDeliveryMode(org.springframework.amqp.core.MessageDeliveryMode.PERSISTENT);
                             return message;

@@ -5,6 +5,16 @@ spring:
     name: mall-admin
   profiles:
     active: dev
+  rabbitmq:
+    host: ${MALL_RABBIT_HOST:localhost}
+    port: ${MALL_RABBIT_PORT:5672}
+    virtual-host: ${MALL_RABBIT_VHOST:/mall}
+    username: ${MALL_RABBIT_USERNAME:mall}
+    password: ${MALL_RABBIT_PASSWORD:mall}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher

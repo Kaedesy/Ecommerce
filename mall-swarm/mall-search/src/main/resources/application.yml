@@ -5,6 +5,15 @@ spring:
     name: mall-search
   profiles:
     active: dev
+  rabbitmq:
+    host: ${MALL_RABBIT_HOST:localhost}
+    port: ${MALL_RABBIT_PORT:5672}
+    virtual-host: ${MALL_RABBIT_VHOST:/mall}
+    username: ${MALL_RABBIT_USERNAME:mall}
+    password: ${MALL_RABBIT_PASSWORD:mall}
+    listener:
+      simple:
+        auto-startup: ${MALL_PRODUCT_INDEX_LISTENER_ENABLED:true}
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher

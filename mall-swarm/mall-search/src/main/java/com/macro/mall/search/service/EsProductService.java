@@ -26,6 +26,9 @@ public interface EsProductService {
      */
     EsProduct create(Long id);
 
+    /** Refresh the current database view into Elasticsearch, deleting the index if the product is no longer searchable. */
+    boolean refreshIndexById(Long id);
+
     /**
      * 批量删除商品
      */

@@ -49,21 +49,25 @@ public interface PmsProductService {
     /**
      * 批量修改商品上架状态
      */
+    @Transactional
     int updatePublishStatus(List<Long> ids, Integer publishStatus);
 
     /**
      * 批量修改商品推荐状态
      */
+    @Transactional
     int updateRecommendStatus(List<Long> ids, Integer recommendStatus);
 
     /**
      * 批量修改新品状态
      */
+    @Transactional
     int updateNewStatus(List<Long> ids, Integer newStatus);
 
     /**
      * 批量删除商品
      */
+    @Transactional
     int updateDeleteStatus(List<Long> ids, Integer deleteStatus);
 
     /**

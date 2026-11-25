@@ -12,7 +12,9 @@ import com.macro.mall.service.PmsProductService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -30,6 +32,8 @@ import java.util.stream.Collectors;
 @Service
 public class PmsProductServiceImpl implements PmsProductService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PmsProductServiceImpl.class);
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
     @Autowired
     private PmsProductMapper productMapper;
     @Autowired
@@ -66,6 +70,7 @@ public class PmsProductServiceImpl implements PmsProductService {
     private PmsProductVertifyRecordDao productVertifyRecordDao;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int create(PmsProductParam productParam) {
         int count;
         //创建商品
@@ -90,6 +95,7 @@ public class PmsProductServiceImpl implements PmsProductService {
         relateAndInsertList(subjectProductRelationDao, productParam.getSubjectProductRelationList(), productId);
         //关联优选
         relateAndInsertList(prefrenceAreaProductRelationDao, productParam.getPrefrenceAreaProductRelationList(), productId);
+        recordProductChanged(productId);
         count = 1;
         return count;
     }
@@ -118,6 +124,7 @@ public class PmsProductServiceImpl implements PmsProductService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int update(Long id, PmsProductParam productParam) {
         int count;
         //更新商品信息
@@ -156,6 +163,7 @@ public class PmsProductServiceImpl implements PmsProductService {
         prefrenceAreaExample.createCriteria().andProductIdEqualTo(id);
         prefrenceAreaProductRelationMapper.deleteByExample(prefrenceAreaExample);
         relateAndInsertList(prefrenceAreaProductRelationDao, productParam.getPrefrenceAreaProductRelationList(), id);
+        recordProductChanged(id);
         count = 1;
         return count;
     }
@@ -231,6 +239,7 @@ public class PmsProductServiceImpl implements PmsProductService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateVerifyStatus(List<Long> ids, Integer verifyStatus, String detail) {
         PmsProduct product = new PmsProduct();
         product.setVerifyStatus(verifyStatus);
@@ -249,43 +258,68 @@ public class PmsProductServiceImpl implements PmsProductService {
             list.add(record);
         }
         productVertifyRecordDao.insertList(list);
+        if (count > 0) recordProductsChanged(ids);
         return count;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updatePublishStatus(List<Long> ids, Integer publishStatus) {
         PmsProduct record = new PmsProduct();
         record.setPublishStatus(publishStatus);
         PmsProductExample example = new PmsProductExample();
         example.createCriteria().andIdIn(ids);
-        return productMapper.updateByExampleSelective(record, example);
+        int count = productMapper.updateByExampleSelective(record, example);
+        if (count > 0) recordProductsChanged(ids);
+        return count;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateRecommendStatus(List<Long> ids, Integer recommendStatus) {
         PmsProduct record = new PmsProduct();
         record.setRecommandStatus(recommendStatus);
         PmsProductExample example = new PmsProductExample();
         example.createCriteria().andIdIn(ids);
-        return productMapper.updateByExampleSelective(record, example);
+        int count = productMapper.updateByExampleSelective(record, example);
+        if (count > 0) recordProductsChanged(ids);
+        return count;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateNewStatus(List<Long> ids, Integer newStatus) {
         PmsProduct record = new PmsProduct();
         record.setNewStatus(newStatus);
         PmsProductExample example = new PmsProductExample();
         example.createCriteria().andIdIn(ids);
-        return productMapper.updateByExampleSelective(record, example);
+        int count = productMapper.updateByExampleSelective(record, example);
+        if (count > 0) recordProductsChanged(ids);
+        return count;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateDeleteStatus(List<Long> ids, Integer deleteStatus) {
         PmsProduct record = new PmsProduct();
         record.setDeleteStatus(deleteStatus);
         PmsProductExample example = new PmsProductExample();
         example.createCriteria().andIdIn(ids);
-        return productMapper.updateByExampleSelective(record, example);
+        int count = productMapper.updateByExampleSelective(record, example);
+        if (count > 0) recordProductsChanged(ids);
+        return count;
+    }
+
+    private void recordProductChanged(Long productId) {
+        jdbcTemplate.update("INSERT INTO pms_product_outbox_event(product_id,status,attempts,next_attempt_time) " +
+                "VALUES (?,'PENDING',0,NOW())", productId);
+    }
+
+    private void recordProductsChanged(List<Long> productIds) {
+        if (CollectionUtils.isEmpty(productIds)) return;
+        jdbcTemplate.batchUpdate("INSERT INTO pms_product_outbox_event(product_id,status,attempts,next_attempt_time) " +
+                        "VALUES (?,'PENDING',0,NOW())", productIds, productIds.size(),
+                (statement, productId) -> statement.setLong(1, productId));
     }
 
     @Override

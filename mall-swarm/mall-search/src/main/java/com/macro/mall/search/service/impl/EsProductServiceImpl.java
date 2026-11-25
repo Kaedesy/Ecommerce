@@ -71,6 +71,17 @@ public class EsProductServiceImpl implements EsProductService {
     }
 
     @Override
+    public boolean refreshIndexById(Long id) {
+        List<EsProduct> products = productDao.getAllEsProductList(id);
+        if (CollectionUtils.isEmpty(products)) {
+            productRepository.deleteById(id);
+            return false;
+        }
+        productRepository.save(products.get(0));
+        return true;
+    }
+
+    @Override
     public void delete(List<Long> ids) {
         if (!CollectionUtils.isEmpty(ids)) {
             List<EsProduct> esProductList = new ArrayList<>();
